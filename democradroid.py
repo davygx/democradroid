@@ -8,15 +8,18 @@ from discord import app_commands
 import database as db
 import dofuncs as do
 import random as r
+from datetime import datetime, time, timedelta
+import asyncio
+
 
 intents = discord.Intents.default()
 intents.members = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
-reprole_id = 1452114980366450845
-senrole_id = 1452114652191391784
-presrole_id = 1452114857846636637
+updatelock = False
+
+adminids = [357228102226542602, 888758436739813407]
 
 
 async def role_for_party(guild, party_id):
@@ -46,6 +49,32 @@ async def assign_party_role(guild, discord_id, democracyonline_id):
     role = await role_for_party(guild, party_id)
     if role is None:
         return
+    member = await guild.fetch_member(discord_id)
+    if member is None:
+        return
+    await member.add_roles(role)
+
+
+async def assign_role_by_job(guild, discord_id, democracyonline_id):
+    do_user_info = do.fetch_user(democracyonline_id)
+    if do_user_info is None:
+        return
+    job_id = do_user_info.get("role")  # type: ignore
+    if job_id is None:
+        return
+    # role here is now "Representative", "Senator", "President"
+    # Check discord for a role with that name
+    role = discord.utils.get(guild.roles, name=job_id)
+    if role is None:
+        # Create the roles
+        await guild.create_role(name="Representative", color=discord.Color.blue())
+        await guild.create_role(name="Senator", color=discord.Color.green())
+        await guild.create_role(name="President", color=discord.Color.gold())
+        role = discord.utils.get(guild.roles, name=job_id)
+        if role is None:
+            print(f"Could not create role for job {job_id}")
+            return
+
     member = await guild.fetch_member(discord_id)
     if member is None:
         return
@@ -102,6 +131,9 @@ async def verify(interaction, user_id: str):
             guild = interaction.guild
             if guild is not None:
                 await assign_party_role(
+                    guild, discord_user_id, record[2]
+                )  # record[2] is democracyonline_id
+                await assign_role_by_job(
                     guild, discord_user_id, record[2]
                 )  # record[2] is democracyonline_id
             return
@@ -171,6 +203,9 @@ async def whoami(interaction):
             await assign_party_role(
                 guild, discord_user_id, user[2]
             )  # user[2] is democracyonline_id
+            await assign_role_by_job(
+                guild, discord_user_id, user[2]
+            )  # user[2] is democracyonline_id
 
         await interaction.response.send_message(embed=embed)
 
@@ -181,7 +216,7 @@ async def whoami(interaction):
 )
 async def deletelink(interaction, id: int = -1):
     if id != -1:
-        if interaction.user.id != 357228102226542602:  # Replace with actual admin ID
+        if interaction.user.id not in adminids:
             await interaction.response.send_message(
                 "You do not have permission to delete other users' links. Message Georgie for help"
             )
@@ -251,6 +286,146 @@ async def processpartyroles(interaction):
     await interaction.response.send_message(
         "Processed party roles for all verified users."
     )
+
+
+@tree.command(
+    name="processjobroles",
+    description="Assign job roles to all verified users based on their DemocracyOnline job",
+)
+async def processjobroles(interaction):
+    guild = interaction.guild
+    if guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server."
+        )
+        return
+
+    verified_users = db.get_all_verified_users()
+    for user in verified_users:
+        discord_user_id = user[1]
+        democracyonline_id = user[2]
+        await assign_role_by_job(guild, discord_user_id, democracyonline_id)
+    await interaction.response.send_message(
+        "Processed job roles for all verified users."
+    )
+
+
+@tree.command(
+    name="gameupdate",
+    description="Fetch the latest game data from DemocracyOnline and update the database",
+)
+async def gameupdate(interaction):
+    global updatelock
+    # This function sends a current game state update to a channel, and then continues
+    # to do so every day at 8pm utc
+
+    channel = interaction.channel
+    if channel is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server channel."
+        )
+        return
+
+    # Game data logic here
+    data = do.fetch_game_state_data()
+
+    # Consists of a dict with:
+    # - Current election statuses senate and presidential
+    # - Current House Bills
+    # - Current Senate Bills
+    # - Current Presidential Bills
+
+    embed = discord.Embed(
+        title="Current DemocracyOnline Game State", color=discord.Color.purple()
+    )
+    # Add election statuses
+    embed.add_field(
+        name="Senate Election Status",
+        value=data["senate_election_status"],
+        inline=False,
+    )
+    embed.add_field(
+        name="Presidential Election Status",
+        value=data["presidential_election_status"],
+        inline=False,
+    )
+    embed.add_field(
+        name="Current House Bills",
+        value="\n".join(data["house_bills"]) if data["house_bills"] else "None",
+        inline=False,
+    )
+    embed.add_field(
+        name="Current Senate Bills",
+        value="\n".join(data["senate_bills"]) if data["senate_bills"] else "None",
+        inline=False,
+    )
+    embed.add_field(
+        name="Current Presidential Bills",
+        value=(
+            "\n".join(data["presidential_bills"])
+            if data["presidential_bills"]
+            else "None"
+        ),
+        inline=False,
+    )
+
+    if updatelock:
+        await channel.send("Game update loop is already running.")
+        return
+    updatelock = True
+
+    while True:
+        # Wait until 8pm UTC
+
+        now = datetime.now(tz=None)
+        target_time = datetime.combine(now.date(), time(20, 0))
+        if now > target_time:
+            target_time += timedelta(days=1)
+        wait_seconds = (target_time - now).total_seconds()
+        await asyncio.sleep(wait_seconds)
+
+        # Game data logic here
+        data = do.fetch_game_state_data()
+
+        # Consists of a dict with:
+        # - Current election statuses senate and presidential
+        # - Current House Bills
+        # - Current Senate Bills
+        # - Current Presidential Bills
+
+        embed = discord.Embed(
+            title="Current DemocracyOnline Game State", color=discord.Color.purple()
+        )
+        # Add election statuses
+        embed.add_field(
+            name="Senate Election Status",
+            value=data["senate_election_status"],
+            inline=False,
+        )
+        embed.add_field(
+            name="Presidential Election Status",
+            value=data["presidential_election_status"],
+            inline=False,
+        )
+        embed.add_field(
+            name="Current House Bills",
+            value="\n".join(data["house_bills"]) if data["house_bills"] else "None",
+            inline=False,
+        )
+        embed.add_field(
+            name="Current Senate Bills",
+            value="\n".join(data["senate_bills"]) if data["senate_bills"] else "None",
+            inline=False,
+        )
+        embed.add_field(
+            name="Current Presidential Bills",
+            value=(
+                "\n".join(data["presidential_bills"])
+                if data["presidential_bills"]
+                else "None"
+            ),
+            inline=False,
+        )
 
 
 @client.event
