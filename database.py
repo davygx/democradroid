@@ -32,7 +32,8 @@ def init_db(db_name="democradroid.db"):
         """
         CREATE TABLE IF NOT EXISTS parties (
             democracyonline_id TEXT,
-            discord_role_id TEXT
+            discord_role_id TEXT,
+            guild_id TEXT
         )
         """
     )
@@ -177,7 +178,7 @@ def delete_user(user_id, db_name="democradroid.db"):
     conn.close()
 
 
-def get_party_role(party_id, db_name="democradroid.db"):
+def get_party_role(party_id, guild_id, db_name="democradroid.db"):
     """Retrieves the Discord role ID for a given party.
 
     Args:
@@ -191,9 +192,9 @@ def get_party_role(party_id, db_name="democradroid.db"):
 
     cursor.execute(
         """
-        SELECT discord_role_id FROM parties WHERE democracyonline_id = ?
-    """,
-        (party_id,),
+        SELECT discord_role_id FROM parties WHERE democracyonline_id = ? and guild_id = ?
+        """,
+        (party_id, guild_id),
     )
     role = cursor.fetchone()
 
@@ -201,7 +202,7 @@ def get_party_role(party_id, db_name="democradroid.db"):
     return role[0] if role else None
 
 
-def add_party_role(party_id, discord_role_id, db_name="democradroid.db"):
+def add_party_role(party_id, discord_role_id, guild_id, db_name="democradroid.db"):
     """Adds or updates the Discord role ID for a given party.
 
     Args:
@@ -214,10 +215,10 @@ def add_party_role(party_id, discord_role_id, db_name="democradroid.db"):
 
     cursor.execute(
         """
-        INSERT INTO parties (democracyonline_id, discord_role_id)
-        VALUES (?, ?)
+        INSERT INTO parties (democracyonline_id, discord_role_id, guild_id)
+        VALUES (?, ?, ?)
     """,
-        (party_id, discord_role_id),
+        (party_id, discord_role_id, guild_id),
     )
 
     conn.commit()

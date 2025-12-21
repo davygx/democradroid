@@ -24,7 +24,7 @@ adminids = [357228102226542602, 888758436739813407]
 
 async def role_for_party(guild, party_id):
     # Add a party role if it doesn't exist, else return existing role_for_party
-    role_id = db.get_party_role(party_id)
+    role_id = db.get_party_role(party_id, str(guild.id))
     if role_id is not None:
         role = guild.get_role(int(role_id))
         if role is not None:
@@ -35,7 +35,7 @@ async def role_for_party(guild, party_id):
     role_name = party_info["name"]  # type: ignore
     party_color = int(party_info["color"].lstrip("#"), 16)  # type: ignore
     role = await guild.create_role(name=role_name, color=discord.Color(party_color))
-    db.add_party_role(party_id, str(role.id))
+    db.add_party_role(party_id, str(role.id), str(guild.id))
     return role
 
 
@@ -207,6 +207,8 @@ async def whoami(interaction):
             inline=False,
         )
 
+        await interaction.response.send_message(embed=embed)
+
         # Add party role to user like wit verify
         guild = interaction.guild
         if guild is not None:
@@ -216,8 +218,6 @@ async def whoami(interaction):
             await assign_role_by_job(
                 guild, discord_user_id, user[2]
             )  # user[2] is democracyonline_id
-
-        await interaction.response.send_message(embed=embed)
 
 
 @tree.command(
@@ -324,7 +324,9 @@ async def processjobroles(interaction):
     name="gameupdate",
     description="Fetch the latest game data from DemocracyOnline and update the database",
 )
-async def gameupdate(interaction):
+async def gameupdate(
+    interaction, roletoping: discord.Role = None, pingonfirstrun: bool = False  # type: ignore
+):
     global updatelock
 
     if interaction.user.id not in adminids:
@@ -393,6 +395,8 @@ async def gameupdate(interaction):
         ),
         inline=False,
     )
+    if pingonfirstrun and roletoping is not None:
+        await channel.send(f"{roletoping.mention} Here is the latest game update.")
     await interaction.response.send_message(embed=embed)
 
     if updatelock:
@@ -460,6 +464,8 @@ async def gameupdate(interaction):
             ),
             inline=False,
         )
+        if roletoping is not None:
+            await channel.send(f"{roletoping.mention} Here is the latest game update.")
         await channel.send(embed=embed)
 
 
