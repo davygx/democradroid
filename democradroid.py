@@ -36,6 +36,22 @@ async def role_for_party(guild, party_id):
     return role
 
 
+async def assign_party_role(guild, discord_id, democracyonline_id):
+    do_user_info = do.fetch_user(democracyonline_id)
+    if do_user_info is None:
+        return
+    party_id = do_user_info.get("party_id")  # type: ignore
+    if party_id is None:
+        return
+    role = await role_for_party(guild, party_id)
+    if role is None:
+        return
+    member = await guild.fetch_member(discord_id)
+    if member is None:
+        return
+    await member.add_roles(role)
+
+
 @tree.command(
     name="verify",
     description="Verify your DemocracyOnline account with your Discord account",
@@ -81,6 +97,13 @@ async def verify(interaction, user_id: str):
             await interaction.response.send_message(
                 f"Your DemocracyOnline account (ID: {user_id}) has been successfully verified and linked to your Discord account ({discord_user_name})."
             )
+
+            # Set party roles
+            guild = interaction.guild
+            if guild is not None:
+                await assign_party_role(
+                    guild, discord_user_id, record[2]
+                )  # record[2] is democracyonline_id
             return
 
     # Generate a verification code
@@ -141,6 +164,13 @@ async def whoami(interaction):
             value=do_user_info["created_at"],  # type: ignore
             inline=False,
         )
+
+        # Add party role to user like wit verify
+        guild = interaction.guild
+        if guild is not None:
+            await assign_party_role(
+                guild, discord_user_id, user[2]
+            )  # user[2] is democracyonline_id
 
         await interaction.response.send_message(embed=embed)
 
