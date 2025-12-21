@@ -80,6 +80,30 @@ def get_user(user_id, db_name="democradroid.db"):
     return user
 
 
+def get_user_by_discord_id(discord_id, db_name="democradroid.db"):
+    """Retrieves a user from the database by their Discord ID.
+
+    Args:
+        discord_id (str): The Discord ID of the user.
+        db_name (str): The name of the database file.
+    Returns:
+        tuple: The user data.
+    """
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT * FROM users WHERE discord_id = ?
+    """,
+        (discord_id,),
+    )
+    user = cursor.fetchone()
+
+    conn.close()
+    return user
+
+
 def add_verification_code(user_id, code, db_name="democradroid.db"):
     """Adds a verification code for a user.
 
