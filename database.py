@@ -202,6 +202,30 @@ def get_party_role(party_id, guild_id, db_name="democradroid.db"):
     return role[0] if role else None
 
 
+def list_party_roles(guild_id, db_name="democradroid.db"):
+    """Retrieves all party roles for a given guild.
+
+    Args:
+        guild_id (str): The Discord guild ID.
+        db_name (str): The name of the database file.
+    Returns:
+        list: A list of tuples containing party IDs and their corresponding Discord role IDs.
+    """
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT democracyonline_id, discord_role_id FROM parties WHERE guild_id = ?
+        """,
+        (guild_id,),
+    )
+    roles = cursor.fetchall()
+
+    conn.close()
+    return roles
+
+
 def add_party_role(party_id, discord_role_id, guild_id, db_name="democradroid.db"):
     """Adds or updates the Discord role ID for a given party.
 
@@ -219,6 +243,28 @@ def add_party_role(party_id, discord_role_id, guild_id, db_name="democradroid.db
         VALUES (?, ?, ?)
     """,
         (party_id, discord_role_id, guild_id),
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def remove_party_role(party_id, guild_id, db_name="democradroid.db"):
+    """Removes the Discord role ID for a given party.
+
+    Args:
+        party_id (str): The DemocracyOnline party ID.
+        guild_id (str): The Discord guild ID.
+        db_name (str): The name of the database file.
+    """
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        DELETE FROM parties WHERE democracyonline_id = ? AND guild_id = ?
+    """,
+        (party_id, guild_id),
     )
 
     conn.commit()

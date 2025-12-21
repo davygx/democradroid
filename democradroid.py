@@ -29,12 +29,25 @@ async def role_for_party(guild, party_id):
         role = guild.get_role(int(role_id))
         if role is not None:
             return role
+        else:
+            # Role not found in guild, remove from db
+            db.remove_party_role(party_id, str(guild.id))
     party_info = do.fetch_party(party_id)
     if party_info is None:
         return None
     role_name = party_info["name"]  # type: ignore
     party_color = int(party_info["color"].lstrip("#"), 16)  # type: ignore
     role = await guild.create_role(name=role_name, color=discord.Color(party_color))
+    # Set role to top of hierarchy
+    position = len(guild.roles) - 1
+    while True:
+        try:
+            await role.edit(position=position)
+            break
+        except:
+            position -= 1
+            if position < 1:
+                break
     db.add_party_role(party_id, str(role.id), str(guild.id))
     return role
 
@@ -52,6 +65,12 @@ async def assign_party_role(guild, discord_id, democracyonline_id):
     member = await guild.fetch_member(discord_id)
     if member is None:
         return
+
+    # Remove other party roles first, if they're a member
+    for dcrole in db.list_party_roles(str(guild.id)):
+        party_role = guild.get_role(int(dcrole[1]))
+        if party_role is not None:
+            await member.remove_roles(party_role)
     await member.add_roles(role)
 
 
