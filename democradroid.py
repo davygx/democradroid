@@ -68,16 +68,26 @@ async def assign_role_by_job(guild, discord_id, democracyonline_id):
     if role is None:
         # Create the roles
         await guild.create_role(name="Representative", color=discord.Color.blue())
-        await guild.create_role(name="Senator", color=discord.Color.green())
-        await guild.create_role(name="President", color=discord.Color.gold())
+        await guild.create_role(name="Senator", color=discord.Color.blue())
+        await guild.create_role(name="President", color=discord.Color.blue())
         role = discord.utils.get(guild.roles, name=job_id)
         if role is None:
             print(f"Could not create role for job {job_id}")
             return
 
+    reprole = discord.utils.get(guild.roles, name="Representative")
+    senatorrole = discord.utils.get(guild.roles, name="Senator")
+    presidentrole = discord.utils.get(guild.roles, name="President")
+
+    # Remove other job roles first
     member = await guild.fetch_member(discord_id)
     if member is None:
         return
+
+    await member.remove_roles(reprole)
+    await member.remove_roles(senatorrole)
+    await member.remove_roles(presidentrole)
+
     await member.add_roles(role)
 
 
@@ -316,6 +326,13 @@ async def processjobroles(interaction):
 )
 async def gameupdate(interaction):
     global updatelock
+
+    if interaction.user.id not in adminids:
+        await interaction.response.send_message(
+            "You do not have permission to use this command."
+        )
+        return
+
     # This function sends a current game state update to a channel, and then continues
     # to do so every day at 8pm utc
 
@@ -341,33 +358,42 @@ async def gameupdate(interaction):
     # Add election statuses
     embed.add_field(
         name="Senate Election Status",
-        value=data["senate_election_status"],
+        value=data["senate_election"],
         inline=False,
     )
     embed.add_field(
         name="Presidential Election Status",
-        value=data["presidential_election_status"],
+        value=data["president_election"],
         inline=False,
     )
     embed.add_field(
         name="Current House Bills",
-        value="\n".join(data["house_bills"]) if data["house_bills"] else "None",
+        value=(
+            "\n".join(data["current_house_bills"])
+            if data["current_house_bills"]
+            else "None"
+        ),
         inline=False,
     )
     embed.add_field(
         name="Current Senate Bills",
-        value="\n".join(data["senate_bills"]) if data["senate_bills"] else "None",
+        value=(
+            "\n".join(data["current_senate_bills"])
+            if data["current_senate_bills"]
+            else "None"
+        ),
         inline=False,
     )
     embed.add_field(
         name="Current Presidential Bills",
         value=(
-            "\n".join(data["presidential_bills"])
-            if data["presidential_bills"]
+            "\n".join(data["current_presidential_bills"])
+            if data["current_presidential_bills"]
             else "None"
         ),
         inline=False,
     )
+    await interaction.response.send_message(embed=embed)
 
     if updatelock:
         await channel.send("Game update loop is already running.")
@@ -378,7 +404,7 @@ async def gameupdate(interaction):
         # Wait until 8pm UTC
 
         now = datetime.now(tz=None)
-        target_time = datetime.combine(now.date(), time(20, 0))
+        target_time = datetime.combine(now.date(), time(20, 5))
         if now > target_time:
             target_time += timedelta(days=1)
         wait_seconds = (target_time - now).total_seconds()
@@ -399,33 +425,42 @@ async def gameupdate(interaction):
         # Add election statuses
         embed.add_field(
             name="Senate Election Status",
-            value=data["senate_election_status"],
+            value=data["senate_election"],
             inline=False,
         )
         embed.add_field(
             name="Presidential Election Status",
-            value=data["presidential_election_status"],
+            value=data["president_election"],
             inline=False,
         )
         embed.add_field(
             name="Current House Bills",
-            value="\n".join(data["house_bills"]) if data["house_bills"] else "None",
+            value=(
+                "\n".join(data["current_house_bills"])
+                if data["current_house_bills"]
+                else "None"
+            ),
             inline=False,
         )
         embed.add_field(
             name="Current Senate Bills",
-            value="\n".join(data["senate_bills"]) if data["senate_bills"] else "None",
+            value=(
+                "\n".join(data["current_senate_bills"])
+                if data["current_senate_bills"]
+                else "None"
+            ),
             inline=False,
         )
         embed.add_field(
             name="Current Presidential Bills",
             value=(
-                "\n".join(data["presidential_bills"])
-                if data["presidential_bills"]
+                "\n".join(data["current_presidential_bills"])
+                if data["current_presidential_bills"]
                 else "None"
             ),
             inline=False,
         )
+        await channel.send(embed=embed)
 
 
 @client.event
