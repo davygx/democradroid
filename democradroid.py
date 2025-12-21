@@ -64,7 +64,7 @@ async def verify(interaction, user_id: str):
     if record[4] is not None:
         print("Checking for verification code in bio...")
         print(f"Verification code: {record[4]}")
-        print(f"User bio: {do_user_info['bio']}")
+        print(f"User bio: {do_user_info['bio']}")  # type: ignore
         if record[4] in do_user_info["bio"]:  # type: ignore
             # Verified
             db.set_user_verified(record[0])
