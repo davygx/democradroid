@@ -213,14 +213,20 @@ async def whoami(interaction):
             party_color = 0x000000
 
         embed = discord.Embed(
-            title="Your DemocracyOnline Account Information",
+            title="DemocracyOnline Account Information",
             color=discord.Color.from_rgb(
                 party_color >> 16, (party_color >> 8) & 0xFF, party_color & 0xFF
             ),
         )
+
+        party_title = do.fetch_party(do_user_info["party_id"])["name"] if do_user_info.get("party_id") is not None else "None"  # type: ignore
+
         embed.add_field(name="Username", value=do_user_info["username"], inline=False)  # type: ignore
-        embed.add_field(name="User ID", value=do_user_info["id"], inline=False)  # type: ignore
         embed.add_field(name="Bio", value=do_user_info["bio"], inline=False)  # type: ignore
+        embed.add_field(name="Party", value=party_title, inline=False)  # type: ignore
+        embed.add_field(name="Role", value=do_user_info.get("role", "None"), inline=False)  # type: ignore
+        embed.add_field(name="Political Leaning", value=do_user_info.get("political_leaning", "None"), inline=False)  # type: ignore
+        embed.add_field(name="Active?", value=str(do_user_info.get("is_active", "None")), inline=False)  # type: ignore
         embed.add_field(
             name="Account Created",
             value=do_user_info["created_at"],  # type: ignore
@@ -237,6 +243,99 @@ async def whoami(interaction):
             )  # user[2] is democracyonline_id
             await assign_role_by_job(
                 guild, discord_user_id, user[2]
+            )  # user[2] is democracyonline_id
+
+
+@tree.command(
+    name="whois",
+    description="Get the linked DemocracyOnline account information for a specified Discord user",
+)
+async def whois(interaction, user: discord.Member):
+    discord_user_id = str(user.id)
+    record = db.get_user_by_discord_id(discord_user_id)
+
+    # Easteregg: if user is the bot itself, respond with a fun Message
+    if user.id == client.user.id:
+        embed = discord.Embed(
+            title="DemocracyOnline Account Information",
+            color=discord.Color.gold(),
+        )
+        embed.add_field(name="Username", value="DemocraDroid", inline=False)
+        embed.add_field(
+            name="Bio",
+            value="I am the official DemocracyOnline Discord bot!",
+            inline=False,
+        )
+        embed.add_field(name="Party", value="Robots United", inline=False)
+        embed.add_field(name="Role", value="Supreme Leader", inline=False)
+        embed.add_field(name="Political Leaning", value="Technocratic", inline=False)
+        embed.add_field(name="Active?", value="Always watching 0_0", inline=False)
+        embed.add_field(
+            name="Account Created",
+            value="1970-01-01T00:00:00Z",
+            inline=False,
+        )
+
+        await interaction.response.send_message(embed=embed)
+        return
+
+    if record is None:
+        await interaction.response.send_message(
+            f"{user.name} has not linked their DemocracyOnline account yet."
+        )
+        return
+
+    if record[3] == 0:
+        await interaction.response.send_message(
+            "The specified user's DemocracyOnline account is not verified yet."
+        )
+        return
+    else:
+        do_user_info = do.fetch_user(record[2])
+        if do_user_info is None:
+            await interaction.response.send_message(
+                "Could not retrieve the specified user's DemocracyOnline account information."
+            )
+            return
+
+        if do_user_info.get("party_id") is not None:  # type: ignore
+            party_color = int(
+                do.fetch_party(do_user_info["party_id"])["color"].lstrip("#"), 16  # type: ignore
+            )
+        else:
+            party_color = 0x000000
+
+        embed = discord.Embed(
+            title="DemocracyOnline Account Information",
+            color=discord.Color.from_rgb(
+                party_color >> 16, (party_color >> 8) & 0xFF, party_color & 0xFF
+            ),
+        )
+
+        party_title = do.fetch_party(do_user_info["party_id"])["name"] if do_user_info.get("party_id") is not None else "None"  # type: ignore
+
+        embed.add_field(name="Username", value=do_user_info["username"], inline=False)  # type: ignore
+        embed.add_field(name="Bio", value=do_user_info["bio"], inline=False)  # type: ignore
+        embed.add_field(name="Party", value=party_title, inline=False)  # type: ignore
+        embed.add_field(name="Role", value=do_user_info.get("role", "None"), inline=False)  # type: ignore
+        embed.add_field(name="Political Leaning", value=do_user_info.get("political_leaning", "None"), inline=False)  # type: ignore
+        embed.add_field(name="Active?", value=str(do_user_info.get("is_active", "None")), inline=False)  # type: ignore
+        embed.add_field(
+            name="Account Created",
+            value=do_user_info["created_at"],  # type: ignore
+            inline=False,
+        )
+
+        await interaction.response.send_message(embed=embed)
+
+        # Add party role to user like wit verify
+        guild = interaction.guild
+        if guild is not None:
+            await assign_party_role(
+                guild, discord_user_id, record[2]
+            )  # user[2] is democracyonline_id
+            await assign_role_by_job(
+                guild, discord_user_id, record[2]
             )  # user[2] is democracyonline_id
 
 
