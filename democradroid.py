@@ -114,7 +114,8 @@ async def assign_role_by_job(guild, discord_id, democracyonline_id):
     name="verify",
     description="Verify your DemocracyOnline account with your Discord account",
 )
-async def verify(interaction, user_id: str):
+async def verify(interaction, user_id: int):
+    user_id = str(user_id)  # type: ignore
     # Get the Discord user ID
     discord_user_id = str(interaction.user.id)
 
@@ -243,8 +244,8 @@ async def whoami(interaction):
     name="deletelink",
     description="Delete the link between your Discord account and your DemocracyOnline account",
 )
-async def deletelink(interaction, id: int = -1):
-    if id != -1:
+async def deletelink(interaction, id: str = ""):
+    if id != "":
         if interaction.user.id not in adminids:
             await interaction.response.send_message(
                 "You do not have permission to delete other users' links. Message Georgie for help"
@@ -275,6 +276,45 @@ async def deletelink(interaction, id: int = -1):
     await interaction.response.send_message(
         "Your link between your Discord account and your DemocracyOnline account has been deleted."
     )
+
+
+@tree.command(
+    name="forceverify",
+    description="Forcefully verify a user's DemocracyOnline account (Admin only)",
+)
+async def forceverify(interaction, discord_id: str, democracyonline_id: str):
+    if interaction.user.id not in adminids:
+        await interaction.response.send_message(
+            "You do not have permission to use this command."
+        )
+        return
+
+    record = db.get_user_by_discord_id(discord_id)
+    if record is None:
+        # No record found, create a new one
+        db.add_user(
+            user_id=str(r.randint(10000000, 99999999)),
+            discord_id=discord_id,
+            democracyonline_id=democracyonline_id,
+        )
+        record = db.get_user_by_discord_id(discord_id)
+
+    if record[3] == 1:
+        await interaction.response.send_message(
+            "The user's DemocracyOnline account is already verified."
+        )
+        return
+
+    db.set_user_verified(record[0])
+    await interaction.response.send_message(
+        f"The DemocracyOnline account (ID: {democracyonline_id}) has been successfully verified and linked to the Discord account (ID: {discord_id})."
+    )
+
+    # Set party roles
+    guild = interaction.guild
+    if guild is not None:
+        await assign_party_role(guild, discord_id, democracyonline_id)
+        await assign_role_by_job(guild, discord_id, democracyonline_id)
 
 
 @tree.command(
