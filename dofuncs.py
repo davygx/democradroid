@@ -17,8 +17,8 @@ def fetch_user(user_id):
         requests.json: The data of the user.
     """
 
-    url = f"{base_url}get-user-without-email"
-    response = requests.post(url, json={"userId": user_id})
+    url = f"{base_url}bot?endpoint=users&id={user_id}"
+    response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
         return data
@@ -35,7 +35,7 @@ def fetch_party(party_id):
         requests.json: The data of the party.
     """
 
-    url = f"{base_url}/get-party-by-id?partyId={party_id}"
+    url = f"{base_url}/bot?endpoint=parties&id={party_id}"
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
@@ -45,7 +45,7 @@ def fetch_party(party_id):
         return "Error fetching party info."
 
 
-def fetch_game_state_data() -> dict:
+def fetch_game_state_data_old() -> dict:
     """Fetches the game state data from democracyonline.io.
     Returns:
         requests.json: The game state data.
@@ -131,6 +131,70 @@ def fetch_game_state_data() -> dict:
         )
 
     return response
+
+
+def fetch_game_state_data() -> dict:
+    """Fetches the game state data from democracyonline.io.
+    Returns:
+        requests.json: The game state data.
+    """
+
+    url = f"{base_url}/bot?endpoint=game-state"
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Error: {response.status_code} - {response.text}")
+        return {"error": "Error fetching game state data."}
+
+    data = response.json()
+    presdata = data[0]
+    senatedata = data[1]
+
+    returndata = {
+        "president_election": presdata.get("status", "Unknown"),
+        "senate_election": senatedata.get("status", "Unknown"),
+        "current_presidential_bills": presdata.get(
+            "bills_voting", ["Bill data coming soon."]
+        ),
+        "current_senate_bills": senatedata.get(
+            "bills_voting", ["Bill data coming soon."]
+        ),
+        "current_house_bills": senatedata.get(
+            "house_bills_voting", ["Bill data coming soon."]
+        ),
+    }
+
+    if returndata["president_election"] == "Candidate":
+        daysleft = presdata.get("daysLeft", 0)
+        returndata["president_election"] = (
+            f"Nominations are open! Stand as a candidate now! {daysleft} day(s) left until voting begins."
+        )
+    elif returndata["president_election"] == "Voting":
+        daysleft = presdata.get("daysLeft", 0)
+        returndata["president_election"] = (
+            f"Presidential elections are currently ongoing! {daysleft} day(s) left until elections conclude."
+        )
+    elif returndata["president_election"] == "Concluded":
+        daysleft = presdata.get("daysLeft", 0)
+        returndata["president_election"] = (
+            f"Presidential elections have concluded. {daysleft} day(s) until the next presidential elections."
+        )
+    if returndata["senate_election"] == "Candidate":
+        daysleft = senatedata.get("daysLeft", 0)
+        returndata["senate_election"] = (
+            f"Nominations are open! Stand as a candidate now! {daysleft} day(s) left until voting begins."
+        )
+    elif returndata["senate_election"] == "Voting":
+        daysleft = senatedata.get("daysLeft", 0)
+        returndata["senate_election"] = (
+            f"Senate elections are currently ongoing! {daysleft} day(s) left until elections conclude."
+        )
+    elif returndata["senate_election"] == "Concluded":
+        daysleft = senatedata.get("daysLeft", 0)
+        returndata["senate_election"] = (
+            f"Senate elections have concluded. {daysleft} day(s) until the next senate elections."
+        )
+
+    return returndata
 
 
 if __name__ == "__main__":

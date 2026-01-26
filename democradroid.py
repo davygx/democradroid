@@ -205,9 +205,9 @@ async def whoami(interaction):
             )
             return
 
-        if do_user_info.get("party_id") is not None:  # type: ignore
+        if do_user_info.get("partyId") is not None:  # type: ignore
             party_color = int(
-                do.fetch_party(do_user_info["party_id"])["color"].lstrip("#"), 16  # type: ignore
+                do.fetch_party(do_user_info["partyId"])["color"].lstrip("#"), 16  # type: ignore
             )
         else:
             party_color = 0x000000
@@ -219,17 +219,18 @@ async def whoami(interaction):
             ),
         )
 
-        party_title = do.fetch_party(do_user_info["party_id"])["name"] if do_user_info.get("party_id") is not None else "None"  # type: ignore
+        party_title = do.fetch_party(do_user_info["partyId"])["name"] if do_user_info.get("partyId") is not None else "None"  # type: ignore
 
         embed.add_field(name="Username", value=do_user_info["username"], inline=False)  # type: ignore
         embed.add_field(name="Bio", value=do_user_info["bio"], inline=False)  # type: ignore
         embed.add_field(name="Party", value=party_title, inline=False)  # type: ignore
         embed.add_field(name="Role", value=do_user_info.get("role", "None"), inline=False)  # type: ignore
-        embed.add_field(name="Political Leaning", value=do_user_info.get("political_leaning", "None"), inline=False)  # type: ignore
-        embed.add_field(name="Active?", value=str(do_user_info.get("is_active", "None")), inline=False)  # type: ignore
+        embed.add_field(name="Political Leaning", value=do_user_info.get("politicalLeaning", "None"), inline=False)  # type: ignore
+        embed.add_field(name="Active?", value=str(do_user_info.get("isActive", "None")), inline=False)  # type: ignore
         embed.add_field(
             name="Account Created",
-            value=do_user_info["created_at"],  # type: ignore
+            # value=do_user_info["created_at"],  # type: ignore
+            value=do_user_info.get("createdAt", "Not currently available"),  # type: ignore
             inline=False,
         )
 
@@ -298,9 +299,9 @@ async def whois(interaction, user: discord.Member):
             )
             return
 
-        if do_user_info.get("party_id") is not None:  # type: ignore
+        if do_user_info.get("partyId") is not None:  # type: ignore
             party_color = int(
-                do.fetch_party(do_user_info["party_id"])["color"].lstrip("#"), 16  # type: ignore
+                do.fetch_party(do_user_info["partyId"])["color"].lstrip("#"), 16  # type: ignore
             )
         else:
             party_color = 0x000000
@@ -312,17 +313,18 @@ async def whois(interaction, user: discord.Member):
             ),
         )
 
-        party_title = do.fetch_party(do_user_info["party_id"])["name"] if do_user_info.get("party_id") is not None else "None"  # type: ignore
+        party_title = do.fetch_party(do_user_info["partyId"])["name"] if do_user_info.get("partyId") is not None else "None"  # type: ignore
 
         embed.add_field(name="Username", value=do_user_info["username"], inline=False)  # type: ignore
         embed.add_field(name="Bio", value=do_user_info["bio"], inline=False)  # type: ignore
         embed.add_field(name="Party", value=party_title, inline=False)  # type: ignore
         embed.add_field(name="Role", value=do_user_info.get("role", "None"), inline=False)  # type: ignore
-        embed.add_field(name="Political Leaning", value=do_user_info.get("political_leaning", "None"), inline=False)  # type: ignore
-        embed.add_field(name="Active?", value=str(do_user_info.get("is_active", "None")), inline=False)  # type: ignore
+        embed.add_field(name="Political Leaning", value=do_user_info.get("politicalLeaning", "None"), inline=False)  # type: ignore
+        embed.add_field(name="Active?", value=str(do_user_info.get("isActive", "None")), inline=False)  # type: ignore
         embed.add_field(
             name="Account Created",
-            value=do_user_info["created_at"],  # type: ignore
+            # value=do_user_info["created_at"],  # type: ignore
+            value=do_user_info.get("createdAt", "Not currently available"),  # type: ignore
             inline=False,
         )
 
@@ -446,7 +448,10 @@ async def processpartyroles(interaction):
         if role is None:
             print(f"Could not create or fetch role for party ID {party_id}")
             continue
-        member = await guild.fetch_member(discord_user_id)
+        try:
+            member = await guild.fetch_member(discord_user_id)
+        except discord.errors.NotFound:
+            member = None
         if member is None:
             print(f"Could not find member with Discord ID {discord_user_id}")
             continue
@@ -472,7 +477,11 @@ async def processjobroles(interaction):
     for user in verified_users:
         discord_user_id = user[1]
         democracyonline_id = user[2]
-        await assign_role_by_job(guild, discord_user_id, democracyonline_id)
+        try:
+            await assign_role_by_job(guild, discord_user_id, democracyonline_id)
+        except discord.errors.NotFound:
+            print(f"Could not find member with Discord ID {discord_user_id}")
+            continue
     await interaction.response.send_message(
         "Processed job roles for all verified users."
     )
