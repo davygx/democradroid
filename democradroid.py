@@ -56,7 +56,7 @@ async def assign_party_role(guild, discord_id, democracyonline_id):
     do_user_info = do.fetch_user(democracyonline_id)
     if do_user_info is None:
         return
-    party_id = do_user_info.get("party_id")  # type: ignore
+    party_id = do_user_info.get("partyId")  # type: ignore
     if party_id is None:
         return
     role = await role_for_party(guild, party_id)
@@ -333,6 +333,9 @@ async def whois(interaction, user: discord.Member):
         # Add party role to user like wit verify
         guild = interaction.guild
         if guild is not None:
+            print(
+                f"Assigning roles for user {user.name} with Discord ID {discord_user_id} and DemocracyOnline ID {record[2]}"
+            )  # record[2] is democracyonline_id
             await assign_party_role(
                 guild, discord_user_id, record[2]
             )  # user[2] is democracyonline_id
@@ -440,7 +443,7 @@ async def processpartyroles(interaction):
                 f"Could not fetch user info for DemocracyOnline ID {democracyonline_id}"
             )
             continue
-        party_id = do_user_info.get("party_id")  # type: ignore
+        party_id = do_user_info.get("partyId")  # type: ignore
         if party_id is None:
             print(f"User {democracyonline_id} is not affiliated with any party.")
             continue
